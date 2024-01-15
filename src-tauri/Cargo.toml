@@ -31,6 +31,7 @@ charset-normalizer-rs = "1.0.6"
 tauri-plugin-upload = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
 sevenz-rust = "0.5.4"
 md5 = "0.7.0"
+encoding_rs = "0.8.33"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 dll-syringe = "0.15.2"
