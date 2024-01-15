@@ -6,50 +6,33 @@ use charset_normalizer_rs::from_bytes;
 use encoding::label::encoding_from_whatwg_label;
 use encoding::DecoderTrap;
 
-pub fn decode_buffer(buf: Vec<u8>) -> (String, String, String) {
-    let buff_output: String;
-    let first_encoding: String;
-    let second_encoding: String;
-    let mut str_encoding: String;
+pub fn decode_buffer(buf: Vec<u8>) -> Result<(String, String, String), String> {
+    // Detect encoding using chardet
+    let first_encoding = charset2encoding(&detect(&buf).0).to_string();
 
-    // chardet
-    first_encoding = charset2encoding(&detect(&buf).0).to_string();
+    // Detect encoding using charset_normalizer_rs
+    let second_encoding = from_bytes(&buf, None)
+        .get_best()
+        .map_or_else(|| "not_found".to_string(), |cd| cd.encoding().to_string());
 
-    // charset_normalizer_rs
-    second_encoding = match from_bytes(&buf, None).get_best() {
-        Some(cd) => cd.encoding().to_string(),
-        None => "not_found".to_string(),
-    };
+    // List of potential encodings to try
+    let potential_encodings = [first_encoding.as_str(), second_encoding.as_str(), "UTF-8", "Windows-1251"];
 
-    str_encoding = first_encoding.clone();
-
-    if first_encoding == "KOI8-R"
-        || first_encoding == "MacCyrillic"
-        || first_encoding == "x-mac-cyrillic"
-    {
-        str_encoding = "cp1251".to_string();
+    // Try decoding with each encoding and select the best result
+    let mut best_result = Err("No valid encoding found".to_string());
+    for &encoding_label in &potential_encodings {
+        if let Some(encoding) = encoding_from_whatwg_label(encoding_label) {
+            match encoding.decode(&buf, DecoderTrap::Replace) {
+                Ok(decoded) => {
+                    best_result = Ok((decoded, first_encoding.clone(), second_encoding.clone()));
+                    break;
+                }
+                Err(_) => continue,
+            }
+        }
     }
 
-    if second_encoding == "koi8-r" || second_encoding == "macintosh" || second_encoding == "ibm866"
-    {
-        str_encoding = "cp1251".to_string();
-    }
-
-    // if str_encoding.len() < 1 {
-    //     str_encoding = "cp1251".to_string();
-    // }
-
-    let coder = encoding_from_whatwg_label(str_encoding.as_str());
-    if coder.is_some() {
-        buff_output = coder
-            .unwrap()
-            .decode(&buf, DecoderTrap::Ignore)
-            .expect("Error");
-    } else {
-        buff_output = String::from_utf8_lossy(buf.as_slice()).to_string();
-    }
-
-    (buff_output, first_encoding, second_encoding)
+    best_result
 }
 
 pub fn copy_files(src: impl AsRef<Path>, dest: impl AsRef<Path>) -> Result<(), String> {
