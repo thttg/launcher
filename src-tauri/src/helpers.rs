@@ -6,7 +6,7 @@ use charset_normalizer_rs::from_bytes;
 use encoding::label::encoding_from_whatwg_label;
 use encoding::DecoderTrap;
 
-pub fn decode_buffer(buf: Vec<u8>) -> Result<(String, String, String), String> {
+pub fn decode_buffer(buf: Vec<u8>) -> Result<String, String> {
     // Detect encoding using chardet
     let first_encoding = charset2encoding(&detect(&buf).0).to_string();
 
@@ -19,21 +19,20 @@ pub fn decode_buffer(buf: Vec<u8>) -> Result<(String, String, String), String> {
     let potential_encodings = [first_encoding.as_str(), second_encoding.as_str(), "UTF-8", "Windows-1251"];
 
     // Try decoding with each encoding and select the best result
-    let mut best_result = Err("No valid encoding found".to_string());
     for &encoding_label in &potential_encodings {
         if let Some(encoding) = encoding_from_whatwg_label(encoding_label) {
             match encoding.decode(&buf, DecoderTrap::Replace) {
                 Ok(decoded) => {
-                    best_result = Ok((decoded, first_encoding.clone(), second_encoding.clone()));
-                    break;
+                    return Ok(decoded);
                 }
                 Err(_) => continue,
             }
         }
     }
 
-    best_result
+    Err("No valid encoding found".to_string())
 }
+
 
 pub fn copy_files(src: impl AsRef<Path>, dest: impl AsRef<Path>) -> Result<(), String> {
     let read_results = fs::read_dir(src);
