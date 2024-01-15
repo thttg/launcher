@@ -180,17 +180,38 @@ impl Query {
         let hostname_len = packet.read_u32::<LittleEndian>().unwrap();
         let mut hostname_buf = vec![0u8; hostname_len as usize];
         packet.read_exact(&mut hostname_buf).unwrap();
-        data.hostname = helpers::decode_buffer(hostname_buf).0;
+        data.hostname = match helpers::decode_buffer(hostname_buf) {
+            Ok(decoded) => decoded,
+            Err(e) => {
+                // Handle the error
+                eprintln!("Error decoding hostname: {}", e);
+                return Err(e);
+            },
+        };
 
         let gamemode_len = packet.read_u32::<LittleEndian>().unwrap();
         let mut gamemode_buf = vec![0u8; gamemode_len as usize];
         packet.read_exact(&mut gamemode_buf).unwrap();
-        data.gamemode = helpers::decode_buffer(gamemode_buf).0;
+        data.gamemode = match helpers::decode_buffer(gamemode_buf) {
+            Ok(decoded) => decoded,
+            Err(e) => {
+                // Handle the error
+                eprintln!("Error decoding gamemode: {}", e);
+                return Err(e);
+            },
+        };
 
         let language_len = packet.read_u32::<LittleEndian>().unwrap();
         let mut language_buf = vec![0u8; language_len as usize];
         packet.read_exact(&mut language_buf).unwrap();
-        data.language = helpers::decode_buffer(language_buf).0;
+        data.language = match helpers::decode_buffer(language_buf) {
+            Ok(decoded) => decoded,
+            Err(e) => {
+                // Handle the error
+                eprintln!("Error decoding language: {}", e);
+                return Err(e);
+            },
+        };
 
         Ok(serde_json::to_string(&data).unwrap())
     }
@@ -204,17 +225,38 @@ impl Query {
         let discord_link_len = packet.read_u32::<LittleEndian>().unwrap();
         let mut discord_link_buf = vec![0u8; discord_link_len as usize];
         packet.read_exact(&mut discord_link_buf).unwrap();
-        data.discord_link = helpers::decode_buffer(discord_link_buf).0;
+        data.discord_link = match helpers::decode_buffer(discord_link_buf) {
+            Ok(decoded) => decoded,
+            Err(e) => {
+                // Handle the error
+                eprintln!("Error decoding discord link: {}", e);
+                return Err(e);
+            },
+        };
 
         let mut banner_url_len = packet.read_u32::<LittleEndian>().unwrap();
         let mut banner_url_buf = vec![0u8; banner_url_len as usize];
         packet.read_exact(&mut banner_url_buf).unwrap();
-        data.light_banner_url = helpers::decode_buffer(banner_url_buf).0;
+        data.light_banner_url = match helpers::decode_buffer(banner_url_buf) {
+            Ok(decoded) => decoded,
+            Err(e) => {
+                // Handle the error
+                eprintln!("Error decoding banner url: {}", e);
+                return Err(e);
+            },
+        };
 
         banner_url_len = packet.read_u32::<LittleEndian>().unwrap();
         banner_url_buf = vec![0u8; banner_url_len as usize];
         packet.read_exact(&mut banner_url_buf).unwrap();
-        data.dark_banner_url = helpers::decode_buffer(banner_url_buf).0;
+        data.dark_banner_url = match helpers::decode_buffer(banner_url_buf) {
+            Ok(decoded) => decoded,
+            Err(e) => {
+                // Handle the error
+                eprintln!("Error decoding banner url: {}", e);
+                return Err(e);
+            },
+        };
 
         Ok(serde_json::to_string(&data).unwrap())
     }
@@ -230,7 +272,14 @@ impl Query {
             let player_name_len = packet.read_u8().unwrap();
             let mut player_name_buf = vec![0u8; player_name_len as usize];
             packet.read_exact(&mut player_name_buf).unwrap();
-            player.name = helpers::decode_buffer(player_name_buf).0;
+            player.name = match helpers::decode_buffer(player_name_buf) {
+                Ok(decoded) => decoded,
+                Err(e) => {
+                    // Handle the error
+                    eprintln!("Error decoding player name: {}", e);
+                    return Err(e);
+                },
+            };
 
             player.score = packet.read_i32::<LittleEndian>().unwrap();
         }
@@ -248,12 +297,26 @@ impl Query {
             let rule_name_len = packet.read_u8().unwrap();
             let mut rule_name_buf = vec![0u8; rule_name_len as usize];
             packet.read_exact(&mut rule_name_buf).unwrap();
-            rule.push(helpers::decode_buffer(rule_name_buf).0);
+            rule.push(match helpers::decode_buffer(rule_name_buf) {
+                Ok(decoded) => decoded,
+                Err(e) => {
+                    // Handle the error
+                    eprintln!("Error decoding rule_name: {}", e);
+                    return Err(e);
+                },
+            };);
 
             let rule_value_len = packet.read_u8().unwrap();
             let mut rule_value_buf = vec![0u8; rule_value_len as usize];
             packet.read_exact(&mut rule_value_buf).unwrap();
-            rule.push(helpers::decode_buffer(rule_value_buf).0);
+            rule.push(match helpers::decode_buffer(rule_value_buf) {
+                Ok(decoded) => decoded,
+                Err(e) => {
+                    // Handle the error
+                    eprintln!("Error decoding rule value: {}", e);
+                    return Err(e);
+                },
+            };);
 
             rules.push(rule);
         }
