@@ -6,32 +6,25 @@ use charset_normalizer_rs::from_bytes;
 use encoding::label::encoding_from_whatwg_label;
 use encoding::DecoderTrap;
 
-pub fn decode_buffer(buf: Vec<u8>) -> String {
-    // Detect encoding using chardet
+pub fn decode_buffer(buf: Vec<u8>) -> (String, String, String) {
     let first_encoding = charset2encoding(&detect(&buf).0).to_string();
-
-    // Detect encoding using charset_normalizer_rs
     let second_encoding = from_bytes(&buf, None)
         .get_best()
         .map_or_else(|| "not_found".to_string(), |cd| cd.encoding().to_string());
 
-    // List of potential encodings to try
     let potential_encodings = [first_encoding.as_str(), second_encoding.as_str(), "UTF-8", "Windows-1251"];
 
-    // Try decoding with each encoding and select the best result
     for &encoding_label in &potential_encodings {
         if let Some(encoding) = encoding_from_whatwg_label(encoding_label) {
             match encoding.decode(&buf, DecoderTrap::Replace) {
-                Ok(decoded) => return decoded,
+                Ok(decoded) => return (decoded, "".to_string(), "".to_string()),
                 Err(_) => continue,
             }
         }
     }
 
-    // Return a default string or error message if all decoding attempts fail
-    "Decoding failed".to_string()
+    ("Decoding failed".to_string(), "".to_string(), "".to_string())
 }
-
 
 pub fn copy_files(src: impl AsRef<Path>, dest: impl AsRef<Path>) -> Result<(), String> {
     let read_results = fs::read_dir(src);
