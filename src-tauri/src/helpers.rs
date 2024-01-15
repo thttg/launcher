@@ -9,16 +9,18 @@ use log::info;
 
 // Define a constant for possible encodings
 const POSSIBLE_ENCODINGS: &[&'static Encoding] = &[
-    UTF_8, ISO_8859_1, WINDOWS_1252, // Common for Western European languages
-    ISO_8859_5, WINDOWS_1251, KOI8_R, // Common for Cyrillic scripts
-    ISO_8859_6, WINDOWS_1256, // Common for Arabic
-    ISO_8859_7, WINDOWS_1253, // Common for Greek
-    ISO_8859_9, WINDOWS_1254, // Common for Turkish
+    UTF_8, WINDOWS_1252, // Common for Western European languages
+    WINDOWS_1251, // Common for Cyrillic scripts
+    WINDOWS_1256, // Arabic
+    WINDOWS_1253, // Greek
+    WINDOWS_1254, // Turkish
     WINDOWS_1257, // Baltic languages
-    ISO_8859_2, WINDOWS_1250, // Central European languages
+    WINDOWS_1250, // Central European languages
     GB18030, BIG5, // Chinese
     EUC_KR, // Korean
-    SHIFT_JIS, EUC_JP, // Japanese
+    SHIFT_JIS, // Japanese
+    WINDOWS_1258, // Vietnamese
+    WINDOWS_874, // Thai
 ];
 
 pub fn decode_buffer(buf: Vec<u8>) -> (String, String, String) {
@@ -29,9 +31,8 @@ pub fn decode_buffer(buf: Vec<u8>) -> (String, String, String) {
     // If chardet has high confidence, use its result
     if chardet_result.1 > 0.9 {
         if let Some(encoding) = Encoding::for_label(first_encoding.as_bytes()) {
-            if let Ok(decoded) = encoding.decode(&buf).0.into_owned() {
-                return (decoded, first_encoding, "not_used".to_string());
-            }
+            let decoded = encoding.decode(&buf).0.into_owned();
+            return (decoded, first_encoding, "not_used".to_string());
         }
     }
 
@@ -43,13 +44,7 @@ pub fn decode_buffer(buf: Vec<u8>) -> (String, String, String) {
 
     // Try to decode using possible encodings
     let buff_output = POSSIBLE_ENCODINGS.iter()
-        .filter_map(|&enc_option| {
-            if let Some(enc) = enc_option {
-                enc.decode(&buf).0.into_owned().ok()
-            } else {
-                None
-            }
-        })
+        .filter_map(|&enc_option| enc_option.decode(&buf).0.into_owned().ok())
         .next()
         .unwrap_or_else(|| String::from_utf8_lossy(&buf).to_string());
 
