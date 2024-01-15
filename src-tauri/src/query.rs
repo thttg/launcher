@@ -185,7 +185,7 @@ impl Query {
             Err(e) => {
                 // Handle the error
                 eprintln!("Error decoding hostname: {}", e);
-                return Err(e);
+                return Err(e.into());
             },
         };
 
@@ -197,7 +197,7 @@ impl Query {
             Err(e) => {
                 // Handle the error
                 eprintln!("Error decoding gamemode: {}", e);
-                return Err(e);
+                return Err(e.into());
             },
         };
 
@@ -209,7 +209,7 @@ impl Query {
             Err(e) => {
                 // Handle the error
                 eprintln!("Error decoding language: {}", e);
-                return Err(e);
+                return Err(e.into());
             },
         };
 
@@ -230,7 +230,7 @@ impl Query {
             Err(e) => {
                 // Handle the error
                 eprintln!("Error decoding discord link: {}", e);
-                return Err(e);
+                return Err(e.into());
             },
         };
 
@@ -242,7 +242,7 @@ impl Query {
             Err(e) => {
                 // Handle the error
                 eprintln!("Error decoding banner url: {}", e);
-                return Err(e);
+                return Err(e.into());
             },
         };
 
@@ -254,7 +254,7 @@ impl Query {
             Err(e) => {
                 // Handle the error
                 eprintln!("Error decoding banner url: {}", e);
-                return Err(e);
+                return Err(e.into());
             },
         };
 
@@ -277,7 +277,7 @@ impl Query {
                 Err(e) => {
                     // Handle the error
                     eprintln!("Error decoding player name: {}", e);
-                    return Err(e);
+                    return Err(e.into());
                 },
             };
 
@@ -302,9 +302,9 @@ impl Query {
                 Err(e) => {
                     // Handle the error
                     eprintln!("Error decoding rule_name: {}", e);
-                    return Err(e);
+                    return Err(e.into());
                 },
-            };);
+            });
 
             let rule_value_len = packet.read_u8().unwrap();
             let mut rule_value_buf = vec![0u8; rule_value_len as usize];
@@ -314,9 +314,9 @@ impl Query {
                 Err(e) => {
                     // Handle the error
                     eprintln!("Error decoding rule value: {}", e);
-                    return Err(e);
+                    return Err(e.into());
                 },
-            };);
+            });
 
             rules.push(rule);
         }
