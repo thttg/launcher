@@ -7,23 +7,27 @@ use encoding::label::encoding_from_whatwg_label;
 use encoding::DecoderTrap;
 
 pub fn decode_buffer(buf: Vec<u8>) -> (String, String, String) {
+    // chardet
     let first_encoding = charset2encoding(&detect(&buf).0).to_string();
+
+    // charset_normalizer_rs
     let second_encoding = from_bytes(&buf, None)
         .get_best()
         .map_or_else(|| "not_found".to_string(), |cd| cd.encoding().to_string());
 
-    let potential_encodings = [first_encoding.as_str(), second_encoding.as_str(), "UTF-8", "Windows-1251"];
+    // Combining the results of two methods
+    let potential_encodings = [&first_encoding, &second_encoding, "UTF-8"];
 
-    for &encoding_label in &potential_encodings {
+    for &encoding_label in potential_encodings {
         if let Some(encoding) = encoding_from_whatwg_label(encoding_label) {
             match encoding.decode(&buf, DecoderTrap::Replace) {
-                Ok(decoded) => return (decoded, "".to_string(), "".to_string()),
+                Ok(decoded) => return (decoded, first_encoding, second_encoding),
                 Err(_) => continue,
             }
         }
     }
 
-    ("Decoding failed".to_string(), "".to_string(), "".to_string())
+    (String::from_utf8_lossy(&buf).to_string(), first_encoding, second_encoding)
 }
 
 pub fn copy_files(src: impl AsRef<Path>, dest: impl AsRef<Path>) -> Result<(), String> {
