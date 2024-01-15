@@ -1,6 +1,5 @@
 use std::fs;
 use std::path::Path;
-use std::borrow::Cow;
 
 use chardet::{charset2encoding, detect};
 use charset_normalizer_rs::from_bytes;
@@ -8,8 +7,9 @@ use encoding_rs::*;
 use log::info;
 
 // Define a constant for possible encodings
-const POSSIBLE_ENCODINGS: &[&'static Encoding] = &[
-    UTF_8, WINDOWS_1252, // Common for Western European languages
+static COMMON_ENCODINGS: &[&Encoding] = &[
+    UTF_8,
+    WINDOWS_1252, // Common for Western European languages
     WINDOWS_1251, // Common for Cyrillic scripts
     WINDOWS_1256, // Arabic
     WINDOWS_1253, // Greek
@@ -26,32 +26,39 @@ const POSSIBLE_ENCODINGS: &[&'static Encoding] = &[
 pub fn decode_buffer(buf: Vec<u8>) -> (String, String, String) {
     // Attempt to detect encoding using chardet
     let chardet_result = detect(&buf);
-    let first_encoding = charset2encoding(&chardet_result.0).to_string();
+    let chardet_encoding = charset2encoding(&chardet_result.0).to_string();
 
     // If chardet has high confidence, use its result
     if chardet_result.1 > 0.9 {
-        if let Some(encoding) = Encoding::for_label(first_encoding.as_bytes()) {
+        if let Some(encoding) = Encoding::for_label(chardet_encoding.as_bytes()) {
             let (decoded, _, _) = encoding.decode(&buf);
-            return (decoded.into_owned(), first_encoding, "not_used".to_string());
+            return (decoded.into_owned(), chardet_encoding, "not_used".to_string());
         }
     }
 
     // If chardet confidence is low, use charset_normalizer_rs for detection
-    let second_encoding = match from_bytes(&buf, None).get_best() {
-        Some(cd) => cd.encoding().to_string(),
-        None => "not_found".to_string(),
-    };
+    let normalizer_encoding = from_bytes(&buf, None)
+        .get_best()
+        .map_or("not_found".to_string(), |cd| cd.encoding().to_string());
 
     // Try to decode using possible encodings
-    let buff_output = POSSIBLE_ENCODINGS.iter()
-        .filter_map(|&enc| {
-            let (decoded, _, _) = enc.decode(&buf);
-            Some(decoded.into_owned())
-        })
-        .next()
-        .unwrap_or_else(|| String::from_utf8_lossy(&buf).to_string());
+    let mut buff_output = String::new();
+    let mut found_encoding = false;
+    for &encoding in COMMON_ENCODINGS.iter() {
+        let (decoded, _, had_errors) = encoding.decode(&buf);
+        if !had_errors {
+            buff_output = decoded.into_owned();
+            found_encoding = true;
+            break;
+        }
+    }
 
-    (buff_output, first_encoding, second_encoding)
+    // Use lossy UTF-8 conversion if no encoding matched
+    if !found_encoding {
+        buff_output = String::from_utf8_lossy(&buf).into_owned();
+    }
+
+    (buff_output, chardet_encoding, normalizer_encoding)
 }
 
 pub fn copy_files(src: impl AsRef<Path>, dest: impl AsRef<Path>) -> Result<(), String> {
