@@ -31,8 +31,8 @@ pub fn decode_buffer(buf: Vec<u8>) -> (String, String, String) {
     // If chardet has high confidence, use its result
     if chardet_result.1 > 0.9 {
         if let Some(encoding) = Encoding::for_label(first_encoding.as_bytes()) {
-            let decoded = encoding.decode(&buf).0.into_owned();
-            return (decoded, first_encoding, "not_used".to_string());
+            let (decoded, _, _) = encoding.decode(&buf);
+            return (decoded.into_owned(), first_encoding, "not_used".to_string());
         }
     }
 
@@ -44,7 +44,10 @@ pub fn decode_buffer(buf: Vec<u8>) -> (String, String, String) {
 
     // Try to decode using possible encodings
     let buff_output = POSSIBLE_ENCODINGS.iter()
-        .filter_map(|&enc_option| enc_option.decode(&buf).0.into_owned().ok())
+        .filter_map(|&enc| {
+            let (decoded, _, _) = enc.decode(&buf);
+            Some(decoded.into_owned())
+        })
         .next()
         .unwrap_or_else(|| String::from_utf8_lossy(&buf).to_string());
 
