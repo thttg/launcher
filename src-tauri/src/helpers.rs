@@ -2,32 +2,44 @@ use std::fs;
 use std::path::Path;
 
 use chardet::{charset2encoding, detect};
+use charset_normalizer_rs::from_bytes;
 use encoding::label::encoding_from_whatwg_label;
 use encoding::DecoderTrap;
-use encoding_rs::Encoding;
+use encoding_rs::*;
 use log::info;
 
-pub fn decode_buffer(buf: Vec<u8>) -> Result<String, String> {
-    // First attempt with chardet
-    let detected_encoding = charset2encoding(&detect(&buf).0);
-    if let Some(encoder) = encoding_from_whatwg_label(detected_encoding) {
-        if let Ok(decoded_string) = encoder.decode(&buf, DecoderTrap::Replace) {
-            return Ok(decoded_string);
-        }
+pub fn decode_buffer(buf: Vec<u8>) -> (String, String, String) {
+    let first_encoding: String;
+    let second_encoding: String;
+    let mut buff_output: String;
+    let mut str_encoding: String;
+
+    // chardet
+    first_encoding = charset2encoding(&detect(&buf).0).to_string();
+
+    // charset_normalizer_rs
+    second_encoding = match from_bytes(&buf, None).get_best() {
+        Some(cd) => cd.encoding().to_string(),
+        None => "not_found".to_string(),
+    };
+
+    // First try using first_encoding
+    if let Some(encoding) = Encoding::for_label(first_encoding.as_bytes()) {
+        buff_output = match encoding.decode(&buf).0 {
+            Cow::Owned(s) => s,
+            Cow::Borrowed(s) => s.to_string(),
+        };
+    } else if let Some(encoding) = Encoding::for_label(second_encoding.as_bytes()) {
+        // If first_encoding fails, try second_encoding
+        buff_output = match encoding.decode(&buf).0 {
+            Cow::Owned(s) => s,
+            Cow::Borrowed(s) => s.to_string(),
+        };
+    } else {
+        buff_output = String::from_utf8_lossy(&buf).to_string();
     }
 
-    // Second attempt with encoding_rs
-    if let Some((encoding, _, _)) = Encoding::for_bom(&buf) {
-        if let Ok(decoded_string) = encoding.decode_without_bom_handling_and_without_replacement(&buf) {
-            return Ok(decoded_string.into_owned());
-        }
-    }
-
-    // Default to UTF-8 as a fallback
-    match String::from_utf8(buf) {
-        Ok(s) => Ok(s),
-        Err(e) => Err(format!("Failed to decode buffer: {}", e)),
-    }
+    (buff_output, first_encoding, second_encoding)
 }
 
 pub fn copy_files(src: impl AsRef<Path>, dest: impl AsRef<Path>) -> Result<(), String> {
