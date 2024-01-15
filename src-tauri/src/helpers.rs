@@ -6,7 +6,7 @@ use charset_normalizer_rs::from_bytes;
 use encoding::label::encoding_from_whatwg_label;
 use encoding::DecoderTrap;
 
-pub fn decode_buffer(buf: Vec<u8>) -> Result<String, String> {
+pub fn decode_buffer(buf: Vec<u8>) -> String {
     // Detect encoding using chardet
     let first_encoding = charset2encoding(&detect(&buf).0).to_string();
 
@@ -22,15 +22,14 @@ pub fn decode_buffer(buf: Vec<u8>) -> Result<String, String> {
     for &encoding_label in &potential_encodings {
         if let Some(encoding) = encoding_from_whatwg_label(encoding_label) {
             match encoding.decode(&buf, DecoderTrap::Replace) {
-                Ok(decoded) => {
-                    return Ok(decoded);
-                }
+                Ok(decoded) => return decoded,
                 Err(_) => continue,
             }
         }
     }
 
-    Err("No valid encoding found".to_string())
+    // Return a default string or error message if all decoding attempts fail
+    "Decoding failed".to_string()
 }
 
 
