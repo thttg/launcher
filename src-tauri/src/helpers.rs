@@ -1,10 +1,9 @@
 use std::fs;
 use std::path::Path;
+use std::borrow::Cow;
 
 use chardet::{charset2encoding, detect};
 use charset_normalizer_rs::from_bytes;
-use encoding::label::encoding_from_whatwg_label;
-use encoding::DecoderTrap;
 use encoding_rs::*;
 use log::info;
 
