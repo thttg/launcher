@@ -7,36 +7,51 @@ use charset_normalizer_rs::from_bytes;
 use encoding_rs::*;
 use log::info;
 
+// Define a constant for possible encodings
+const POSSIBLE_ENCODINGS: &[&'static Encoding] = &[
+    UTF_8, ISO_8859_1, WINDOWS_1252, // Common for Western European languages
+    ISO_8859_5, WINDOWS_1251, KOI8_R, // Common for Cyrillic scripts
+    ISO_8859_6, WINDOWS_1256, // Common for Arabic
+    ISO_8859_7, WINDOWS_1253, // Common for Greek
+    ISO_8859_9, WINDOWS_1254, // Common for Turkish
+    WINDOWS_1257, // Baltic languages
+    ISO_8859_2, WINDOWS_1250, // Central European languages
+    GB18030, BIG5, // Chinese
+    EUC_KR, // Korean
+    SHIFT_JIS, EUC_JP, // Japanese
+];
+
 pub fn decode_buffer(buf: Vec<u8>) -> (String, String, String) {
-    let first_encoding: String;
-    let second_encoding: String;
-    let mut buff_output: String;
-    let mut str_encoding: String;
+    // Attempt to detect encoding using chardet
+    let chardet_result = detect(&buf);
+    let first_encoding = charset2encoding(&chardet_result.0).to_string();
 
-    // chardet
-    first_encoding = charset2encoding(&detect(&buf).0).to_string();
+    // If chardet has high confidence, use its result
+    if chardet_result.1 > 0.9 {
+        if let Some(encoding) = Encoding::for_label(first_encoding.as_bytes()) {
+            if let Ok(decoded) = encoding.decode(&buf).0.into_owned() {
+                return (decoded, first_encoding, "not_used".to_string());
+            }
+        }
+    }
 
-    // charset_normalizer_rs
-    second_encoding = match from_bytes(&buf, None).get_best() {
+    // If chardet confidence is low, use charset_normalizer_rs for detection
+    let second_encoding = match from_bytes(&buf, None).get_best() {
         Some(cd) => cd.encoding().to_string(),
         None => "not_found".to_string(),
     };
 
-    // First try using first_encoding
-    if let Some(encoding) = Encoding::for_label(first_encoding.as_bytes()) {
-        buff_output = match encoding.decode(&buf).0 {
-            Cow::Owned(s) => s,
-            Cow::Borrowed(s) => s.to_string(),
-        };
-    } else if let Some(encoding) = Encoding::for_label(second_encoding.as_bytes()) {
-        // If first_encoding fails, try second_encoding
-        buff_output = match encoding.decode(&buf).0 {
-            Cow::Owned(s) => s,
-            Cow::Borrowed(s) => s.to_string(),
-        };
-    } else {
-        buff_output = String::from_utf8_lossy(&buf).to_string();
-    }
+    // Try to decode using possible encodings
+    let buff_output = POSSIBLE_ENCODINGS.iter()
+        .filter_map(|&enc_option| {
+            if let Some(enc) = enc_option {
+                enc.decode(&buf).0.into_owned().ok()
+            } else {
+                None
+            }
+        })
+        .next()
+        .unwrap_or_else(|| String::from_utf8_lossy(&buf).to_string());
 
     (buff_output, first_encoding, second_encoding)
 }
