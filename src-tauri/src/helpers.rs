@@ -2,50 +2,26 @@ use std::fs;
 use std::path::Path;
 
 use chardetng::EncodingDetector;
-use charset_normalizer_rs::from_bytes;
 use encoding::label::encoding_from_whatwg_label;
 use encoding::DecoderTrap;
 use log::info;
-use lingua::{Language, LanguageDetectorBuilder};
 
 pub fn decode_buffer(buf: Vec<u8>) -> (String, String, String) {
-    let mut buff_output: String;
-    let first_encoding: String;
-    let second_encoding: String;
-    let mut str_encoding: String;
-
-    // chardetng for more advanced encoding detection
     let mut detector = EncodingDetector::new();
     detector.feed(&buf, true);
     let charset = detector.guess(None, true);
-    first_encoding = charset.name().to_string();
+    let first_encoding = charset.name().to_string();
 
-    // charset_normalizer_rs for supplemental encoding detection
-    second_encoding = match from_bytes(&buf, None).get_best() {
-        Some(cd) => cd.encoding().to_string(),
-        None => "not_found".to_string(),
+    let second_encoding = first_encoding.clone();
+
+    let encoding = encoding_from_whatwg_label(first_encoding.as_str()).unwrap_or(encoding::all::UTF_8);
+    let (decoded, _, had_errors) = encoding.decode(&buf);
+
+    let buff_output = if had_errors {
+        String::from_utf8_lossy(&buf).into_owned()
+    } else {
+        decoded.into_owned()
     };
-
-    // Language detection
-    let detector = LanguageDetectorBuilder::from_languages(&[Language::English, Language::Russian, Language::Chinese]).build();
-    let text_attempt = String::from_utf8_lossy(&buf).into_owned();
-    if let Some(detected_language) = detector.detect_language_of(text_attempt) {
-        str_encoding = match detected_language {
-            Language::Russian => "Windows-1251".to_string(),
-            Language::Chinese => "GB18030".to_string(),
-            _ => first_encoding.clone(),
-        };
-    } else {
-        str_encoding = first_encoding.clone();
-    }
-
-    // Decoding
-    let coder = encoding_from_whatwg_label(str_encoding.as_str());
-    if let Some(decoder) = coder {
-        buff_output = decoder.decode(&buf, DecoderTrap::Ignore).unwrap_or_default();
-    } else {
-        buff_output = String::from_utf8_lossy(&buf).to_string();
-    }
 
     (buff_output, first_encoding, second_encoding)
 }
