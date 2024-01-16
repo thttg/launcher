@@ -5,10 +5,6 @@ use chardetng::EncodingDetector;
 use encoding_rs::{Encoding, UTF_8};
 use log::info;
 
-use chardetng::EncodingDetector;
-use encoding_rs::{Encoding, UTF_8};
-use log::info;
-
 pub fn decode_buffer(buf: Vec<u8>) -> (String, String, String) {
     // Use chardetng for preliminary encoding detection
     let mut detector = EncodingDetector::new();
