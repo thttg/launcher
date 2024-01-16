@@ -32,6 +32,8 @@ tauri-plugin-upload = { git = "https://github.com/tauri-apps/plugins-workspace",
 sevenz-rust = "0.5.4"
 md5 = "0.7.0"
 encoding_rs = "0.8.33"
+chardetng = "0.1.17"
+lingua = "1.6.2"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 dll-syringe = "0.15.2"
