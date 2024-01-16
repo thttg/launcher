@@ -5,14 +5,15 @@ use encoding_rs::{Encoding, UTF_8};
 use log::info;
 
 pub fn decode_buffer(buf: Vec<u8>) -> (String, String, String) {
-    let (encoding, _, had_errors) = Encoding::for_bom(&buf).unwrap_or((UTF_8, &buf, false));
+    let (encoding, offset) = Encoding::for_bom(&buf).unwrap_or((UTF_8, 0));
     let first_encoding = encoding.name().to_string();
     let second_encoding = first_encoding.clone();
 
+    let (decoded, _, had_errors) = encoding.decode(&buf[offset..]);
     let buff_output = if had_errors {
         String::from_utf8_lossy(&buf).into_owned()
     } else {
-        encoding.decode(&buf).0.into_owned()
+        decoded.into_owned()
     };
 
     (buff_output, first_encoding, second_encoding)
