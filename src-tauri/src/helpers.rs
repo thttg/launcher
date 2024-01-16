@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::Path;
 
+use chardet::{charset2encoding, detect};
 use chardetng::EncodingDetector;
 use encoding_rs::{Encoding, UTF_8};
 use log::info;
@@ -11,24 +12,33 @@ pub fn decode_buffer(buf: Vec<u8>) -> (String, String, String) {
     detector.feed(&buf, true);
     let guessed_encoding = detector.guess(None, true).name();
 
+    // Use chardet for encoding detection
+    let first_encoding = charset2encoding(&detect(&buf).0).to_string();
+
+    // Initialize variables
+    let buff_output: String;
+    let actual_encoding: &Encoding;
+
     // Modify detection to handle specific encodings as cp1251
-    let encoding = match guessed_encoding {
-        "KOI8-R" | "MacCyrillic" | "x-mac-cyrillic" | "koi8-r" | "macintosh" | "ibm866" => "windows-1251",
-        _ => guessed_encoding,
-    };
+    if first_encoding == "KOI8-R"
+        || first_encoding == "MacCyrillic"
+        || first_encoding == "x-mac-cyrillic"
+    {
+        actual_encoding = Encoding::for_label("windows-1251".as_bytes()).unwrap_or(UTF_8);
+    } else {
+        actual_encoding = Encoding::for_label(first_encoding.as_bytes()).unwrap_or(UTF_8);
+    }
 
     // Use encoding_rs for decoding
-    let actual_encoding = Encoding::for_label(encoding.as_bytes()).unwrap_or(UTF_8);
     let (decoded, _, had_errors) = actual_encoding.decode(&buf);
 
-    let buff_output = if had_errors {
+    buff_output = if had_errors {
         String::from_utf8_lossy(&buf).into_owned()
     } else {
         decoded.into_owned()
     };
 
-    let first_encoding = actual_encoding.name().to_string();
-    let second_encoding = first_encoding.clone();
+    let second_encoding = actual_encoding.name().to_string();
 
     (buff_output, first_encoding, second_encoding)
 }
