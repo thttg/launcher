@@ -5,10 +5,10 @@ use chardet::{charset2encoding, detect};
 use charset_normalizer_rs::from_bytes;
 use encoding::label::encoding_from_whatwg_label;
 use encoding::DecoderTrap;
+use encoding_rs::*;
 use log::info;
 
-static COMMON_ENCODINGS: &[&Encoding] = &[
-    UTF_8,
+static COMMON_ENCODINGS: &[&'static Encoding] = &[
     WINDOWS_1252, // Common for Western European languages
     WINDOWS_1251, // Common for Cyrillic scripts
     WINDOWS_1256, // Arabic
@@ -20,7 +20,7 @@ static COMMON_ENCODINGS: &[&Encoding] = &[
     EUC_KR, // Korean
     SHIFT_JIS, // Japanese
     WINDOWS_1258, // Vietnamese
-    WINDOWS_874, // Thai
+    WINDOWS_874 // Thai
 ];
 
 pub fn decode_buffer(buf: Vec<u8>) -> (String, String, String) {
