@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::Path;
 
-use chardetng;
+use chardetng::EncodingDetector;
 use charset_normalizer_rs::from_bytes;
 use encoding::label::encoding_from_whatwg_label;
 use encoding::DecoderTrap;
@@ -15,8 +15,8 @@ pub fn decode_buffer(buf: Vec<u8>) -> (String, String, String) {
     let mut str_encoding: String;
 
     // chardetng for more advanced encoding detection
-    let detector = chardetng::EncodingDetector::new();
-    let charset = detector.detect(&buf);
+    let mut detector = EncodingDetector::new();
+    let charset = detector.feed(&buf, true);
     first_encoding = charset.name().to_string();
 
     // charset_normalizer_rs for supplemental encoding detection
@@ -25,9 +25,10 @@ pub fn decode_buffer(buf: Vec<u8>) -> (String, String, String) {
         None => "not_found".to_string(),
     };
 
-    // Use language detection as supplementary method
+    // Language detection
     let detector = LanguageDetectorBuilder::from_languages(&[Language::English, Language::Russian, Language::Chinese]).build();
-    if let Some(detected_language) = detector.detect_language_of(&buf) {
+    let text_attempt = String::from_utf8_lossy(&buf);
+    if let Some(detected_language) = detector.detect_language_of(&text_attempt) {
         str_encoding = match detected_language {
             Language::Russian => "KOI8-R".to_string(),
             Language::Chinese => "GB18030".to_string(),
@@ -37,12 +38,12 @@ pub fn decode_buffer(buf: Vec<u8>) -> (String, String, String) {
         str_encoding = first_encoding.clone();
     }
 
-    // Use encoding_from_whatwg_label for decoding
+    // Decoding
     let coder = encoding_from_whatwg_label(str_encoding.as_str());
     if let Some(decoder) = coder {
         buff_output = decoder.decode(&buf, DecoderTrap::Ignore).unwrap_or_default();
     } else {
-        buff_output = String::from_utf8_lossy(&buf).to_string();
+        buff_output = text_attempt.into_owned();
     }
 
     (buff_output, first_encoding, second_encoding)
