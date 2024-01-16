@@ -2,16 +2,25 @@ use std::fs;
 use std::path::Path;
 
 use chardetng::EncodingDetector;
-use encoding_rs::{Encoding, UTF_8, WINDOWS_1251};
+use encoding_rs::{Encoding, UTF_8, KOI8_R, WINDOWS_1251, EUC_KR, GB18030, SHIFT_JIS};
 use log::info;
 
+/// Decodes a buffer of bytes into a string, guessing the encoding.
 pub fn decode_buffer(buf: Vec<u8>) -> (String, String, String) {
+    // Initialize the encoding detector
     let mut detector = EncodingDetector::new();
     detector.feed(&buf, true);
+
+    // Guess the encoding using chardetng
     let guessed_encoding = detector.guess(None, true).name();
 
+    // Try decoding with the guessed encoding, then fallback to other common encodings
     let (decoded, first_encoding) = try_decode(&buf, guessed_encoding)
-        .or_else(|| try_decode(&buf, "windows-1251"))
+        .or_else(|| try_decode(&buf, "KOI8-R"))    // Try KOI8-R for Cyrillic scripts
+        .or_else(|| try_decode(&buf, "windows-1251")) // Try Windows-1251 for Cyrillic scripts
+        .or_else(|| try_decode(&buf, "EUC-KR"))     // Try EUC-KR for Korean
+        .or_else(|| try_decode(&buf, "GB18030"))    // Try GB18030 for Chinese
+        .or_else(|| try_decode(&buf, "Shift_JIS"))  // Try Shift_JIS for Japanese
         .unwrap_or_else(|| (String::from_utf8_lossy(&buf).into_owned(), "utf-8".to_string()));
 
     let second_encoding = first_encoding.clone();
@@ -19,6 +28,7 @@ pub fn decode_buffer(buf: Vec<u8>) -> (String, String, String) {
     (decoded, first_encoding, second_encoding)
 }
 
+/// Tries to decode a buffer using a specified encoding.
 fn try_decode(buf: &[u8], encoding_name: &str) -> Option<(String, String)> {
     Encoding::for_label(encoding_name.as_bytes()).and_then(|encoding| {
         let (decoded, _, had_errors) = encoding.decode(buf);
