@@ -3,10 +3,10 @@ use std::path::Path;
 
 use chardet::{charset2encoding, detect};
 use charset_normalizer_rs::from_bytes;
-use encoding_rs::*;
+use encoding::label::encoding_from_whatwg_label;
+use encoding::DecoderTrap;
 use log::info;
 
-// Define a constant for possible encodings
 static COMMON_ENCODINGS: &[&Encoding] = &[
     UTF_8,
     WINDOWS_1252, // Common for Western European languages
@@ -24,41 +24,34 @@ static COMMON_ENCODINGS: &[&Encoding] = &[
 ];
 
 pub fn decode_buffer(buf: Vec<u8>) -> (String, String, String) {
-    // Attempt to detect encoding using chardet
-    let chardet_result = detect(&buf);
-    let chardet_encoding = charset2encoding(&chardet_result.0).to_string();
-
-    // If chardet has high confidence, use its result
-    if chardet_result.1 > 0.9 {
-        if let Some(encoding) = Encoding::for_label(chardet_encoding.as_bytes()) {
-            let (decoded, _, _) = encoding.decode(&buf);
-            return (decoded.into_owned(), chardet_encoding, "not_used".to_string());
-        }
-    }
-
-    // If chardet confidence is low, use charset_normalizer_rs for detection
-    let normalizer_encoding = from_bytes(&buf, None)
+    let first_encoding = charset2encoding(&detect(&buf).0).to_string();
+    let second_encoding = from_bytes(&buf, None)
         .get_best()
-        .map_or("not_found".to_string(), |cd| cd.encoding().to_string());
+        .map_or_else(|| "not_found".to_string(), |cd| cd.encoding().to_string());
 
-    // Try to decode using possible encodings
-    let mut buff_output = String::new();
-    let mut found_encoding = false;
-    for &encoding in COMMON_ENCODINGS.iter() {
-        let (decoded, _, had_errors) = encoding.decode(&buf);
-        if !had_errors {
-            buff_output = decoded.into_owned();
-            found_encoding = true;
-            break;
+    let mut str_encoding = if first_encoding == second_encoding {
+        first_encoding
+    } else {
+        try_common_encodings(&buf).unwrap_or_else(|| first_encoding)
+    };
+
+    let decoded_text = match encoding_from_whatwg_label(&str_encoding) {
+        Some(coder) => coder.decode(&buf, DecoderTrap::Replace).unwrap_or_else(|_| "Error".to_string()),
+        None => String::from_utf8_lossy(&buf).to_string(),
+    };
+
+    (decoded_text, first_encoding, second_encoding)
+}
+
+fn try_common_encodings(buf: &[u8]) -> Option<String> {
+    for &encoding in COMMON_ENCODINGS {
+        if let Ok(decoded) = encoding.decode(buf, DecoderTrap::Replace) {
+            if !decoded.contains('\u{FFFD}') {
+                return Some(encoding.name().to_string());
+            }
         }
     }
-
-    // Use lossy UTF-8 conversion if no encoding matched
-    if !found_encoding {
-        buff_output = String::from_utf8_lossy(&buf).into_owned();
-    }
-
-    (buff_output, chardet_encoding, normalizer_encoding)
+    None
 }
 
 pub fn copy_files(src: impl AsRef<Path>, dest: impl AsRef<Path>) -> Result<(), String> {
