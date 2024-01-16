@@ -16,7 +16,8 @@ pub fn decode_buffer(buf: Vec<u8>) -> (String, String, String) {
 
     // chardetng for more advanced encoding detection
     let mut detector = EncodingDetector::new();
-    let charset = detector.feed(&buf, true);
+    detector.feed(&buf, true);
+    let charset = detector.guess(None, true);
     first_encoding = charset.name().to_string();
 
     // charset_normalizer_rs for supplemental encoding detection
@@ -27,10 +28,10 @@ pub fn decode_buffer(buf: Vec<u8>) -> (String, String, String) {
 
     // Language detection
     let detector = LanguageDetectorBuilder::from_languages(&[Language::English, Language::Russian, Language::Chinese]).build();
-    let text_attempt = String::from_utf8_lossy(&buf);
-    if let Some(detected_language) = detector.detect_language_of(&text_attempt) {
+    let text_attempt = String::from_utf8_lossy(&buf).into_owned();
+    if let Some(detected_language) = detector.detect_language_of(text_attempt) {
         str_encoding = match detected_language {
-            Language::Russian => "KOI8-R".to_string(),
+            Language::Russian => "Windows-1251".to_string(),
             Language::Chinese => "GB18030".to_string(),
             _ => first_encoding.clone(),
         };
@@ -43,7 +44,7 @@ pub fn decode_buffer(buf: Vec<u8>) -> (String, String, String) {
     if let Some(decoder) = coder {
         buff_output = decoder.decode(&buf, DecoderTrap::Ignore).unwrap_or_default();
     } else {
-        buff_output = text_attempt.into_owned();
+        buff_output = String::from_utf8_lossy(&buf).to_string();
     }
 
     (buff_output, first_encoding, second_encoding)
