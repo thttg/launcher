@@ -1,16 +1,9 @@
 use std::fs;
 use std::path::Path;
 
-use chardetng::EncodingDetector;
 use encoding_rs::*;
-use std::borrow::Cow;
+use chardetng::EncodingDetector;
 use log::info;
-
-static COMMON_ENCODINGS: &[&'static Encoding] = &[
-    WINDOWS_1252, WINDOWS_1251, WINDOWS_1256, WINDOWS_1253,
-    WINDOWS_1254, WINDOWS_1257, WINDOWS_1250, GB18030, BIG5,
-    EUC_KR, SHIFT_JIS, WINDOWS_1258, WINDOWS_874,
-];
 
 // List of common encodings to try if automatic detection fails.
 static COMMON_ENCODINGS: &[&'static Encoding] = &[
@@ -31,24 +24,18 @@ static COMMON_ENCODINGS: &[&'static Encoding] = &[
 /// Decodes a buffer of bytes into a string using the best guess for encoding.
 /// Returns the decoded string, the name of the detected encoding, and the name of the used encoding.
 pub fn decode_buffer(buf: Vec<u8>) -> (String, String, String) {
-    // Create a new encoding detector.
-    let mut detector = EncodingDetector::new();
-    // Feed the buffer to the detector and close the input.
-    detector.feed(&buf, true);
-    // Guess the encoding. The boolean argument specifies whether to use a heuristic.
-    let detected_encoding = detector.guess(None, true);
+    let mut detector = EncodingDetector::new(); // Create a new detector instance
+    detector.feed(&buf, true); // Feed the buffer to the detector
+    let detected_encoding = detector.guess(None, true); // Guess the encoding
 
-    // Determine the preferred encoding to use for decoding.
-    let preferred_encoding = if let Some(encoding) = Encoding::for_label(detected_encoding.name().as_bytes()) {
-        encoding
-    } else {
-        // Try common encodings if automatic detection is uncertain.
-        try_common_encodings(&buf).unwrap_or(UTF_8)
-    };
+    // Determine the preferred encoding for decoding
+    let preferred_encoding = Encoding::for_label(detected_encoding.name().as_bytes())
+        .or_else(|| try_common_encodings(&buf))
+        .unwrap_or(UTF_8);
 
-    // Decode the buffer using the preferred encoding.
+    // Decode the buffer using the preferred encoding
     let (decoded_text, _, _) = preferred_encoding.decode(&buf);
-    // Return the decoded text along with the names of the detected and used encodings.
+    // Return the decoded text along with the detected and used encoding names
     (decoded_text.into_owned(), detected_encoding.name().to_string(), preferred_encoding.name().to_string())
 }
 
@@ -58,10 +45,10 @@ fn try_common_encodings(buf: &[u8]) -> Option<&'static Encoding> {
     for &encoding in COMMON_ENCODINGS {
         let (decoded, _, had_errors) = encoding.decode(buf);
         if !had_errors {
-            return Some(encoding);
+            return Some(encoding); // Return the first successful encoding
         }
     }
-    None
+    None // Return None if no encoding succeeded
 }
 
 pub fn copy_files(src: impl AsRef<Path>, dest: impl AsRef<Path>) -> Result<(), String> {
