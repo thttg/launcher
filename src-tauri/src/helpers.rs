@@ -1,13 +1,18 @@
 use std::fs;
 use std::path::Path;
 
-use chardet::{charset2encoding, detect};
-use charset_normalizer_rs::from_bytes;
-use encoding::label::encoding_from_whatwg_label;
-use encoding::DecoderTrap;
+use chardetng::EncodingDetector;
 use encoding_rs::*;
+use std::borrow::Cow;
 use log::info;
 
+static COMMON_ENCODINGS: &[&'static Encoding] = &[
+    WINDOWS_1252, WINDOWS_1251, WINDOWS_1256, WINDOWS_1253,
+    WINDOWS_1254, WINDOWS_1257, WINDOWS_1250, GB18030, BIG5,
+    EUC_KR, SHIFT_JIS, WINDOWS_1258, WINDOWS_874,
+];
+
+// List of common encodings to try if automatic detection fails.
 static COMMON_ENCODINGS: &[&'static Encoding] = &[
     WINDOWS_1252, // Common for Western European languages
     WINDOWS_1251, // Common for Cyrillic scripts
@@ -20,35 +25,40 @@ static COMMON_ENCODINGS: &[&'static Encoding] = &[
     EUC_KR, // Korean
     SHIFT_JIS, // Japanese
     WINDOWS_1258, // Vietnamese
-    WINDOWS_874 // Thai
+    WINDOWS_874, // Thai
 ];
 
+/// Decodes a buffer of bytes into a string using the best guess for encoding.
+/// Returns the decoded string, the name of the detected encoding, and the name of the used encoding.
 pub fn decode_buffer(buf: Vec<u8>) -> (String, String, String) {
-    let first_encoding = charset2encoding(&detect(&buf).0).to_string();
-    let second_encoding = from_bytes(&buf, None)
-        .get_best()
-        .map_or_else(|| "not_found".to_string(), |cd| cd.encoding().to_string());
+    // Create a new encoding detector.
+    let mut detector = EncodingDetector::new();
+    // Feed the buffer to the detector and close the input.
+    detector.feed(&buf, true);
+    // Guess the encoding. The boolean argument specifies whether to use a heuristic.
+    let detected_encoding = detector.guess(None, true);
 
-    let mut str_encoding = if first_encoding == second_encoding {
-        first_encoding
+    // Determine the preferred encoding to use for decoding.
+    let preferred_encoding = if let Some(encoding) = Encoding::for_label(detected_encoding.name().as_bytes()) {
+        encoding
     } else {
-        try_common_encodings(&buf).unwrap_or_else(|| first_encoding)
+        // Try common encodings if automatic detection is uncertain.
+        try_common_encodings(&buf).unwrap_or(UTF_8)
     };
 
-    let decoded_text = match encoding_from_whatwg_label(&str_encoding) {
-        Some(coder) => coder.decode(&buf, DecoderTrap::Replace).unwrap_or_else(|_| "Error".to_string()),
-        None => String::from_utf8_lossy(&buf).to_string(),
-    };
-
-    (decoded_text, first_encoding, second_encoding)
+    // Decode the buffer using the preferred encoding.
+    let (decoded_text, _, _) = preferred_encoding.decode(&buf);
+    // Return the decoded text along with the names of the detected and used encodings.
+    (decoded_text.into_owned(), detected_encoding.name().to_string(), preferred_encoding.name().to_string())
 }
 
-fn try_common_encodings(buf: &[u8]) -> Option<String> {
+/// Tries to decode the buffer using a list of common encodings.
+/// Returns the first encoding that successfully decodes the buffer without errors.
+fn try_common_encodings(buf: &[u8]) -> Option<&'static Encoding> {
     for &encoding in COMMON_ENCODINGS {
-        if let Ok(decoded) = encoding.decode(buf, DecoderTrap::Replace) {
-            if !decoded.contains('\u{FFFD}') {
-                return Some(encoding.name().to_string());
-            }
+        let (decoded, _, had_errors) = encoding.decode(buf);
+        if !had_errors {
+            return Some(encoding);
         }
     }
     None
