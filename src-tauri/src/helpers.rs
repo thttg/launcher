@@ -24,9 +24,9 @@ pub fn decode_buffer(buf: Vec<u8>) -> (String, String, String) {
         || first_encoding == "MacCyrillic"
         || first_encoding == "x-mac-cyrillic"
     {
-        actual_encoding = Encoding::for_label("windows-1251".as_bytes()).unwrap_or(UTF_8);
+        actual_encoding = Encoding::for_label("cp1251".as_bytes()).unwrap_or(UTF_8);
     } else {
-        actual_encoding = Encoding::for_label(first_encoding.as_bytes()).unwrap_or(UTF_8);
+        actual_encoding = Encoding::for_label(guessed_encoding.as_bytes()).unwrap_or(UTF_8);
     }
 
     // Use encoding_rs for decoding
