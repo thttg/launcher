@@ -2,42 +2,39 @@ use std::fs;
 use std::path::Path;
 
 use chardetng::EncodingDetector;
-use encoding_rs::{Encoding, UTF_8, KOI8_R, WINDOWS_1251, EUC_KR, GB18030, SHIFT_JIS};
+use encoding_rs::{Encoding, UTF_8};
+use log::info;
+
+use chardetng::EncodingDetector;
+use encoding_rs::{Encoding, UTF_8};
 use log::info;
 
 pub fn decode_buffer(buf: Vec<u8>) -> (String, String, String) {
+    // Use chardetng for preliminary encoding detection
     let mut detector = EncodingDetector::new();
     detector.feed(&buf, true);
     let guessed_encoding = detector.guess(None, true).name();
 
-    let (decoded, first_encoding) = try_decode(&buf, "KOI8-R")
-        .or_else(|| try_decode(&buf, "windows-1251"))
-        .or_else(|| {
-            if guessed_encoding != "KOI8-R" && guessed_encoding != "windows-1251" {
-                try_decode(&buf, guessed_encoding)
-            } else {
-                None
-            }
-        })
-        .or_else(|| try_decode(&buf, "EUC-KR"))
-        .or_else(|| try_decode(&buf, "GB18030"))
-        .or_else(|| try_decode(&buf, "Shift_JIS"))
-        .unwrap_or_else(|| (String::from_utf8_lossy(&buf).into_owned(), "utf-8".to_string()));
+    // Modify detection to handle specific encodings as cp1251
+    let encoding = match guessed_encoding {
+        "KOI8-R" | "MacCyrillic" | "x-mac-cyrillic" | "koi8-r" | "macintosh" | "ibm866" => "windows-1251",
+        _ => guessed_encoding,
+    };
 
+    // Use encoding_rs for decoding
+    let actual_encoding = Encoding::for_label(encoding.as_bytes()).unwrap_or(UTF_8);
+    let (decoded, _, had_errors) = actual_encoding.decode(&buf);
+
+    let buff_output = if had_errors {
+        String::from_utf8_lossy(&buf).into_owned()
+    } else {
+        decoded.into_owned()
+    };
+
+    let first_encoding = actual_encoding.name().to_string();
     let second_encoding = first_encoding.clone();
 
-    (decoded, first_encoding, second_encoding)
-}
-
-fn try_decode(buf: &[u8], encoding_name: &str) -> Option<(String, String)> {
-    Encoding::for_label(encoding_name.as_bytes()).and_then(|encoding| {
-        let (decoded, _, had_errors) = encoding.decode(buf);
-        if had_errors {
-            None
-        } else {
-            Some((decoded.into_owned(), encoding_name.to_string()))
-        }
-    })
+    (buff_output, first_encoding, second_encoding)
 }
 
 pub fn copy_files(src: impl AsRef<Path>, dest: impl AsRef<Path>) -> Result<(), String> {
