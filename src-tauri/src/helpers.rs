@@ -1,23 +1,19 @@
 use std::fs;
 use std::path::Path;
 
-use chardetng::EncodingDetector;
-use encoding::label::encoding_from_whatwg_label;
+use encoding_rs::Encoding;
+use encoding_rs::DecoderTrap;
 use log::info;
 
 pub fn decode_buffer(buf: Vec<u8>) -> (String, String, String) {
-    let mut detector = EncodingDetector::new();
-    detector.feed(&buf, true);
-    let charset = detector.guess(None, true);
-    let first_encoding = charset.name().to_string();
+    let (encoding, _, had_errors) = Encoding::for_bom(&buf).unwrap_or((Encoding::UTF_8, &buf, false));
+    let first_encoding = encoding.name().to_string();
     let second_encoding = first_encoding.clone();
 
-    let encoding = encoding_from_whatwg_label(first_encoding.as_str()).unwrap_or(encoding::all::UTF_8);
-    let result = encoding.decode(&buf, encoding::DecoderTrap::Ignore);
-
-    let buff_output = match result {
-        Ok(decoded) => decoded,
-        Err(_) => String::from_utf8_lossy(&buf).into_owned(),
+    let buff_output = if had_errors {
+        String::from_utf8_lossy(&buf).into_owned()
+    } else {
+        encoding.decode(&buf, DecoderTrap::Replace).0.into_owned()
     };
 
     (buff_output, first_encoding, second_encoding)
