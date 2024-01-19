@@ -24,14 +24,14 @@ pub fn decode_buffer(buf: Vec<u8>) -> (String, String) {
         .unwrap_or_else(|| "not_found".to_string());
 
     // Collect encoding results for debug
-    let mut messages: Vec<String> = Vec::new();
-    messages.push(format!("Input: {}", String::from_utf8_lossy(&buf)));
-    messages.push(format!("\tchardetng: {}", chardetng_encoding));
-    messages.push(format!("\tchardet: {}", chardet_encoding));
-    messages.push(format!(
-        "\tcharset_normalizer: {}",
-        charset_normalizer_encoding
-    ));
+    // let mut messages: Vec<String> = Vec::new();
+    // messages.push(format!("Input: {}", String::from_utf8_lossy(&buf)));
+    // messages.push(format!("\tchardetng: {}", chardetng_encoding));
+    // messages.push(format!("\tchardet: {}", chardet_encoding));
+    // messages.push(format!(
+    //     "\tcharset_normalizer: {}",
+    //     charset_normalizer_encoding
+    // ));
 
     let actual_encoding = if chardet_encoding == "ascii" && charset_normalizer_encoding == "ascii" {
         // Default to UTF-8 if both chardet and charset normalizer detect ASCII
@@ -44,10 +44,10 @@ pub fn decode_buffer(buf: Vec<u8>) -> (String, String) {
     } else if (chardetng_encoding == "windows-1252" && chardet_encoding == "windows-1251")
         || (chardet_encoding == "ISO-8859-1"
             && (charset_normalizer_encoding == "ibm866"
-                || charset_normalizer_encoding == "iso-8859-2"))
-        || (chardet_encoding == "ISO-8859-1"
-            && (charset_normalizer_encoding == "windows-874"
+                || charset_normalizer_encoding == "iso-8859-2"
+                || charset_normalizer_encoding == "windows-874"
                 || charset_normalizer_encoding == "iso-8859-1"))
+        || (chardetng_encoding == "GBK" && chardet_encoding == "ISO-8859-1")
     {
         // Use windows-1252 for various combinations
         Encoding::for_label("windows-1252".as_bytes()).unwrap_or(UTF_8)
@@ -67,12 +67,12 @@ pub fn decode_buffer(buf: Vec<u8>) -> (String, String) {
     let buff_output = decoded.into_owned();
 
     // Print debug information
-    messages.push(format!("\tfinal: {}", actual_encoding.name().to_string()));
-    for message in messages {
-        print!("{}", message);
-        print!("\t");
-    }
-    println!();
+    // messages.push(format!("\tfinal: {}", actual_encoding.name().to_string()));
+    // for message in messages {
+    //     print!("{}", message);
+    //     print!("\t");
+    // }
+    // println!();
 
     // Return the decoded string and the encoding name
     (buff_output, actual_encoding.name().to_string())
