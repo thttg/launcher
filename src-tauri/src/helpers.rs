@@ -34,24 +34,26 @@ pub fn decode_buffer(buf: Vec<u8>) -> (String, String) {
     ));
 
     let actual_encoding = if chardet_encoding == "ascii" && charset_normalizer_encoding == "ascii" {
-        // Use UTF-8 if both chardet and charset normalizer detect ASCII
+        // Default to UTF-8 if both chardet and charset normalizer detect ASCII
         Encoding::for_label("UTF_8".as_bytes()).unwrap_or(UTF_8)
     } else if (chardetng_encoding == "GBK" && charset_normalizer_encoding == "ibm866")
         || charset_normalizer_encoding == "macintosh"
     {
         // Use windows-1251 for GBK and IBM866 combination, or when charset normalizer detects macintosh
         Encoding::for_label("windows-1251".as_bytes()).unwrap_or(UTF_8)
-    } else if chardetng_encoding == "GBK" || chardet_encoding == "GB2312" {
-        // Use GB18030 for Chinese when chardetng detects GBK or chardet detects GB2312
-        Encoding::for_label("GB18030".as_bytes()).unwrap_or(UTF_8)
     } else if (chardetng_encoding == "windows-1252" && chardet_encoding == "windows-1251")
         || (chardet_encoding == "ISO-8859-1"
             && (charset_normalizer_encoding == "ibm866"
                 || charset_normalizer_encoding == "iso-8859-2"))
-        || (chardetng_encoding == "windows-874" && chardet_encoding == "ISO-8859-1")
+        || (chardet_encoding == "ISO-8859-1"
+            && (charset_normalizer_encoding == "windows-874"
+                || charset_normalizer_encoding == "iso-8859-1"))
     {
         // Use windows-1252 for various combinations
         Encoding::for_label("windows-1252".as_bytes()).unwrap_or(UTF_8)
+    } else if chardetng_encoding == "GBK" || chardet_encoding == "GB2312" {
+        // Use GB18030 for Chinese when chardetng detects GBK or chardet detects GB2312
+        Encoding::for_label("GB18030".as_bytes()).unwrap_or(UTF_8)
     } else {
         // Default to the encoding detected by chardetng
         Encoding::for_label(chardetng_encoding.as_bytes()).unwrap_or(UTF_8)
